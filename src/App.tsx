@@ -394,10 +394,7 @@ const App: React.FC = () => {
                 <LayoutGrid size={24} className="text-white" />
             </div>
             <div className="text-left">
-                <h1 className="text-xl font-bold text-slate-900 leading-none group-hover:text-brand-600 transition-colors">SwiftClock</h1>
-                <span className="text-xs text-slate-400 font-medium tracking-wide">
-                    {showAdminDashboard ? 'Admin Dashboard' : 'Team Kiosk'}
-                </span>
+                <h1 className="text-xl font-bold text-slate-900 leading-none group-hover:text-brand-600 transition-colors">采醫醫師打卡</h1>
             </div>
         </button>
 
