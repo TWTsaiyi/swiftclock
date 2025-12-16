@@ -16,7 +16,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({ isOpen, onClos
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Hardcoded demo PIN
-    if (pin === '1234') {
+    if (pin === '3308') {
       onLogin();
       setPin('');
       setError(false);
