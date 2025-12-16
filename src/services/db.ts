@@ -15,23 +15,28 @@ const isToday = (timestamp: number) => {
 export const db = {
   // --- USERS ---
   getUsers: async (): Promise<User[]> => {
+    let users: User[] = [];
     if (isSupabaseEnabled) {
       const { data, error } = await supabase!.from('users').select('*');
       if (error) {
         console.error('Supabase error:', error);
-        return [];
+      } else {
+        users = data.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          color: u.color,
+          department: u.department,
+          employeeId: u.employee_id,
+          rank: u.rank
+        })) as User[];
       }
-      return data.map((u: any) => ({
-        id: u.id,
-        name: u.name,
-        color: u.color,
-        department: u.department,
-        employeeId: u.employee_id
-      })) as User[];
     } else {
       const stored = localStorage.getItem('tempo_users');
-      return stored ? JSON.parse(stored) as User[] : [];
+      users = stored ? JSON.parse(stored) as User[] : [];
     }
+    
+    // Sort by rank ascending
+    return users.sort((a, b) => (a.rank || 0) - (b.rank || 0));
   },
 
   saveUser: async (user: User) => {
@@ -41,7 +46,8 @@ export const db = {
         name: user.name,
         color: user.color,
         department: user.department,
-        employee_id: user.employeeId
+        employee_id: user.employeeId,
+        rank: user.rank
       });
       if (error) console.error('Save user error:', error);
     } else {
@@ -50,7 +56,28 @@ export const db = {
       const newUsers = existingIndex >= 0 
         ? users.map(u => u.id === user.id ? user : u) 
         : [...users, user];
+      // Keep sort
+      newUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
       localStorage.setItem('tempo_users', JSON.stringify(newUsers));
+    }
+  },
+
+  saveUsersOrder: async (usersToUpdate: User[]) => {
+    if (isSupabaseEnabled) {
+      // Bulk upsert if possible, or loop
+      for (const user of usersToUpdate) {
+        await supabase!.from('users').update({ rank: user.rank }).eq('id', user.id);
+      }
+    } else {
+      // For LocalStorage, we need to update the whole list
+      // We assume usersToUpdate contains the modified users. We need to merge this into the full list.
+      const allUsers = await db.getUsers();
+      const updatedAllUsers = allUsers.map(u => {
+        const update = usersToUpdate.find(up => up.id === u.id);
+        return update ? update : u;
+      });
+      updatedAllUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+      localStorage.setItem('tempo_users', JSON.stringify(updatedAllUsers));
     }
   },
 
@@ -80,12 +107,9 @@ export const db = {
 
   saveDepartments: async (departments: string[]) => {
     if (isSupabaseEnabled) {
-        // Full replace logic is tricky in SQL, so we'll upsert loop for simplicity in this demo
-        // Ideally: Delete not in list, Upsert list
         for (let i = 0; i < departments.length; i++) {
              await supabase!.from('departments').upsert({ name: departments[i], rank: i });
         }
-        // Basic delete of old ones not in list could be added here
     } else {
         localStorage.setItem('tempo_departments', JSON.stringify(departments));
     }
@@ -95,7 +119,6 @@ export const db = {
       if (isSupabaseEnabled) {
           await supabase!.from('departments').delete().eq('name', name);
       } else {
-          // Handled by saveDepartments logic in LS usually, but helper here
           const depts = await db.getDepartments();
           const newDepts = depts.filter(d => d !== name);
           localStorage.setItem('tempo_departments', JSON.stringify(newDepts));
@@ -124,7 +147,6 @@ export const db = {
       const activeStr = localStorage.getItem(`tempo_current_shift_${userId}`);
       if (activeStr) {
           const active: Shift = JSON.parse(activeStr);
-          // Return active shift first if it belongs to this history
           return [active, ...history];
       }
       return history;
@@ -140,8 +162,6 @@ export const db = {
           
           const map: Record<string, Shift> = {};
           data?.forEach((s: any) => {
-             // Only include shifts that started TODAY. 
-             // Stale shifts (yesterday's forgotten clockouts) should not be considered "Active" for the dashboard status.
              if (isToday(s.start_time)) {
                 map[s.user_id] = {
                     id: s.id,
@@ -158,7 +178,6 @@ export const db = {
              const saved = localStorage.getItem(`tempo_current_shift_${u.id}`);
              if (saved) {
                  const shift = JSON.parse(saved) as Shift;
-                 // Only include if start time is today
                  if (isToday(shift.startTime)) {
                     map[u.id] = shift;
                  }
@@ -184,7 +203,6 @@ export const db = {
       if (isSupabaseEnabled) {
           await supabase!.from('shifts').update({ end_time: null }).eq('id', shiftId);
       } else {
-          // Logic handled in App.tsx for LS mostly, but for consistency:
           const history = await db.getShifts(user.id);
           const shift = history.find(s => s.id === shiftId);
           if (shift) {
@@ -202,7 +220,6 @@ export const db = {
         end_time: shift.endTime,
       }).eq('id', shift.id);
     } else {
-      // Get current history
       const stored = localStorage.getItem(`tempo_shifts_${user.id}`);
       const history = stored ? JSON.parse(stored) : [];
       const updatedHistory = [shift, ...history];
@@ -215,7 +232,6 @@ export const db = {
     if (isSupabaseEnabled) {
       await supabase!.from('shifts').delete().eq('id', shiftId);
     } else {
-      // Check active
       const activeStr = localStorage.getItem(`tempo_current_shift_${userId}`);
       if (activeStr) {
           const active = JSON.parse(activeStr) as Shift;
@@ -224,7 +240,6 @@ export const db = {
               return; 
           }
       }
-      // Check history
       const histStr = localStorage.getItem(`tempo_shifts_${userId}`);
       if (histStr) {
           const hist = JSON.parse(histStr) as Shift[];
