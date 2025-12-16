@@ -87,6 +87,9 @@ const App: React.FC = () => {
             const uniqueUsers = Array.from(new Map(fetchedUsers.map(u => [u.id, u])).values());
             const uniqueDepts = Array.from(new Set(fetchedDepts));
 
+            // Ensure sorted by rank
+            uniqueUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+
             setUsers(uniqueUsers);
             setDepartments(uniqueDepts);
             setActiveShifts(fetchedActiveShifts);
@@ -229,13 +232,17 @@ const App: React.FC = () => {
 
     // Use selected department from URL if available, otherwise fallback
     const defaultDept = selectedDept !== 'All Departments' ? selectedDept : (departments[0] || 'General');
+    
+    // Calculate next rank
+    const maxRank = users.length > 0 ? Math.max(...users.map(u => u.rank || 0)) : 0;
 
     const newUser: User = {
         id: crypto.randomUUID(),
         name: newUserName.trim(),
         color: getRandomColor(),
         department: newUserDept || defaultDept,
-        employeeId: Math.floor(1000 + Math.random() * 9000).toString()
+        employeeId: Math.floor(1000 + Math.random() * 9000).toString(),
+        rank: maxRank + 1
     };
     
     // Optimistic update
@@ -278,6 +285,44 @@ const App: React.FC = () => {
 
     // 5. Persist changes
     await db.deleteUser(userId);
+  };
+
+  const handleMoveUser = async (user: User, direction: 'prev' | 'next') => {
+    // Filter users in same department
+    const dept = user.department || 'General';
+    // Get users for this department, sorted by current rank
+    const deptUsers = users
+        .filter(u => (u.department || 'General') === dept)
+        .sort((a, b) => (a.rank || 0) - (b.rank || 0));
+    
+    const currentIndex = deptUsers.findIndex(u => u.id === user.id);
+    if (currentIndex === -1) return;
+    
+    const targetIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= deptUsers.length) return;
+    
+    // Create a copy for manipulation
+    const newDeptUsers = [...deptUsers];
+    // Swap
+    [newDeptUsers[currentIndex], newDeptUsers[targetIndex]] = [newDeptUsers[targetIndex], newDeptUsers[currentIndex]];
+    
+    // Normalize ranks for the entire department to ensure consistency (1, 2, 3...)
+    const usersToUpdate = newDeptUsers.map((u, index) => ({
+        ...u,
+        rank: index + 1 // 1-based rank
+    }));
+
+    // Update global state by merging updated users
+    const updatedAllUsers = users.map(u => {
+        const updated = usersToUpdate.find(up => up.id === u.id);
+        return updated ? updated : u;
+    });
+    
+    // Sort global list
+    updatedAllUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+    
+    setUsers(updatedAllUsers);
+    await db.saveUsersOrder(usersToUpdate);
   };
 
   // --- Time Tracking ---
@@ -547,7 +592,7 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {deptUsers.map(user => (
+                                    {deptUsers.map((user, index) => (
                                         <TeamMemberCard 
                                             key={user.id}
                                             user={user}
@@ -556,6 +601,12 @@ const App: React.FC = () => {
                                             onToggleStatus={handleToggleStatus}
                                             onViewDetails={(u) => setCurrentUser(u)}
                                             isAdminMode={isAdminMode}
+                                            onMove={
+                                                // Only show move controls if there's somewhere to move
+                                                deptUsers.length > 1 
+                                                ? (dir) => handleMoveUser(user, dir)
+                                                : undefined
+                                            }
                                         />
                                     ))}
                                 </div>
