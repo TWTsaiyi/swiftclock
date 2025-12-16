@@ -437,7 +437,7 @@ const App: React.FC = () => {
                 <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6">
                     <div className="space-y-4 w-full">
                         <div className="flex items-center gap-4">
-                            <h2 className="text-2xl font-bold text-slate-800">Who is working today?</h2>
+                            <h2 className="text-2xl font-bold text-slate-800">看診醫師清單</h2>
                             <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-slate-500 text-sm font-medium">
                                 <Users size={14} />
                                 <span>{Object.keys(activeShifts).length} / {users.length}</span>
@@ -628,14 +628,14 @@ const App: React.FC = () => {
                                     onClick={() => handleClockIn(currentUser)}
                                     className="w-full py-5 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl font-bold text-xl shadow-lg shadow-brand-200 transition-transform active:scale-95 flex items-center justify-center gap-3"
                                 >
-                                    <Play fill="currentColor" size={24} /> Clock In
+                                    <Play fill="currentColor" size={24} /> 上診
                                 </button>
                             ) : (
                                 <button 
                                     onClick={() => handleClockOut(currentUser)}
                                     className="w-full py-5 bg-rose-500 hover:bg-rose-600 text-white rounded-2xl font-bold text-xl shadow-lg shadow-rose-200 transition-transform active:scale-95 flex items-center justify-center gap-3"
                                 >
-                                    <Square fill="currentColor" size={24} /> Clock Out
+                                    <Square fill="currentColor" size={24} /> 下診
                                 </button>
                             )}
 
@@ -658,7 +658,7 @@ const App: React.FC = () => {
                     <div className="lg:col-span-8 space-y-6">
                          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                              <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                                <h3 className="text-xl font-bold text-slate-900">Shift History</h3>
+                                <h3 className="text-xl font-bold text-slate-900">當日紀錄</h3>
                              </div>
                              <table className="w-full text-left">
                                 <thead className="bg-slate-50 border-b border-slate-200">
