@@ -16,5 +16,4 @@ export interface User {
   color: string;
   department?: string;
   employeeId?: string;
-  rank?: number;
 }

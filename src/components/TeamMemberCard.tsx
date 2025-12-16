@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, Shift } from '../types';
-import { Clock, CircleDot, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, CircleDot } from 'lucide-react';
 import { formatDuration } from '../utils';
 
 interface TeamMemberCardProps {
@@ -10,7 +10,6 @@ interface TeamMemberCardProps {
   onToggleStatus: (user: User) => void;
   onViewDetails: (user: User) => void;
   isAdminMode?: boolean;
-  onMove?: (direction: 'prev' | 'next') => void;
 }
 
 export const TeamMemberCard: React.FC<TeamMemberCardProps> = ({ 
@@ -19,43 +18,18 @@ export const TeamMemberCard: React.FC<TeamMemberCardProps> = ({
   elapsedTime, 
   onViewDetails,
   isAdminMode,
-  onMove
 }) => {
   const isActive = !!activeShift;
 
   return (
     <div 
-        onClick={(e) => {
-           // Prevent navigating if clicking controls
-           if ((e.target as HTMLElement).closest('button')) return;
-           onViewDetails(user);
-        }}
+        onClick={() => onViewDetails(user)}
         className={`group relative rounded-[32px] p-8 flex flex-col items-center justify-center transition-all duration-200 cursor-pointer border-2 hover:scale-[1.02] ${
             isActive 
             ? 'bg-emerald-50/40 border-emerald-100 shadow-sm' 
             : 'bg-white border-slate-100 hover:border-slate-200 shadow-sm'
         }`}
     >
-        {/* Admin Reorder Controls */}
-        {isAdminMode && onMove && (
-            <div className="absolute top-4 left-4 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                    onClick={() => onMove('prev')}
-                    className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-400 hover:text-slate-700 hover:border-slate-300 shadow-sm transition-colors"
-                    title="Move Left"
-                >
-                    <ChevronLeft size={14} />
-                </button>
-                <button 
-                    onClick={() => onMove('next')}
-                    className="p-1.5 bg-white border border-slate-200 rounded-full text-slate-400 hover:text-slate-700 hover:border-slate-300 shadow-sm transition-colors"
-                    title="Move Right"
-                >
-                    <ChevronRight size={14} />
-                </button>
-            </div>
-        )}
-
         {/* Status Light (Visual decoration) */}
         {isActive && (
             <div className="absolute top-6 right-6">

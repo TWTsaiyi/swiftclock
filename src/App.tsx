@@ -87,9 +87,6 @@ const App: React.FC = () => {
             const uniqueUsers = Array.from(new Map(fetchedUsers.map(u => [u.id, u])).values());
             const uniqueDepts = Array.from(new Set(fetchedDepts));
 
-            // Ensure sorted by rank
-            uniqueUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
-
             setUsers(uniqueUsers);
             setDepartments(uniqueDepts);
             setActiveShifts(fetchedActiveShifts);
@@ -233,16 +230,12 @@ const App: React.FC = () => {
     // Use selected department from URL if available, otherwise fallback
     const defaultDept = selectedDept !== 'All Departments' ? selectedDept : (departments[0] || 'General');
 
-    // Calculate next rank
-    const maxRank = users.length > 0 ? Math.max(...users.map(u => u.rank || 0)) : 0;
-
     const newUser: User = {
         id: crypto.randomUUID(),
         name: newUserName.trim(),
         color: getRandomColor(),
         department: newUserDept || defaultDept,
-        employeeId: Math.floor(1000 + Math.random() * 9000).toString(),
-        rank: maxRank + 1
+        employeeId: Math.floor(1000 + Math.random() * 9000).toString()
     };
     
     // Optimistic update
@@ -285,67 +278,6 @@ const App: React.FC = () => {
 
     // 5. Persist changes
     await db.deleteUser(userId);
-  };
-  
-  const handleMoveUser = async (user: User, direction: 'prev' | 'next') => {
-    // Filter users in same department to find neighbors
-    const dept = user.department || 'General';
-    const deptUsers = users
-        .filter(u => (u.department || 'General') === dept)
-        .sort((a, b) => (a.rank || 0) - (b.rank || 0));
-    
-    const currentIndex = deptUsers.findIndex(u => u.id === user.id);
-    if (currentIndex === -1) return;
-    
-    const targetIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
-    if (targetIndex < 0 || targetIndex >= deptUsers.length) return;
-    
-    // Swap positions in the local department list
-    const newDeptUsers = [...deptUsers];
-    [newDeptUsers[currentIndex], newDeptUsers[targetIndex]] = [newDeptUsers[targetIndex], newDeptUsers[currentIndex]];
-    
-    // Normalize ranks for this department to ensure consistency
-    // We give them ranks based on their new index * 10 to allow spacing if needed
-    const usersToUpdate: User[] = [];
-    newDeptUsers.forEach((u, idx) => {
-        // We only care about relative order, but let's just use index+1 for simplicity in this filtered view
-        // HOWEVER, to avoid conflict with other departments, we should probably just swap the rank values of the two swapped users?
-        // Swapping rank values is safer if we assume global uniqueness or don't care about gaps.
-        // Let's try simple swap of values first.
-    });
-
-    // Actually, simple swap of rank values is safest to preserve relative order among other items
-    const userA = deptUsers[currentIndex];
-    const userB = deptUsers[targetIndex];
-    
-    const rankA = userA.rank || 0;
-    const rankB = userB.rank || 0;
-    
-    // If ranks are identical (e.g. 0), we need to fix the whole list first
-    if (rankA === rankB) {
-         // Fallback: Rewrite ranks for all users in this department
-         newDeptUsers.forEach((u, idx) => {
-             u.rank = idx + 1; // 1, 2, 3...
-             usersToUpdate.push(u);
-         });
-    } else {
-         // Swap
-         const updatedA = { ...userA, rank: rankB };
-         const updatedB = { ...userB, rank: rankA };
-         usersToUpdate.push(updatedA, updatedB);
-    }
-    
-    // Merge into global state
-    const updatedAllUsers = users.map(u => {
-        const found = usersToUpdate.find(up => up.id === u.id);
-        return found ? found : u;
-    });
-    
-    // Sort global list
-    updatedAllUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
-    
-    setUsers(updatedAllUsers);
-    await db.saveUsersOrder(usersToUpdate);
   };
 
   // --- Time Tracking ---
@@ -615,7 +547,7 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {deptUsers.map((user, index) => (
+                                    {deptUsers.map(user => (
                                         <TeamMemberCard 
                                             key={user.id}
                                             user={user}
@@ -624,12 +556,6 @@ const App: React.FC = () => {
                                             onToggleStatus={handleToggleStatus}
                                             onViewDetails={(u) => setCurrentUser(u)}
                                             isAdminMode={isAdminMode}
-                                            onMove={
-                                                // Only show move controls if there's somewhere to move
-                                                deptUsers.length > 1 
-                                                ? (dir) => handleMoveUser(user, dir)
-                                                : undefined
-                                            }
                                         />
                                     ))}
                                 </div>
