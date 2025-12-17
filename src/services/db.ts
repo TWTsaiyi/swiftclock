@@ -72,13 +72,21 @@ export const db = {
 
   saveUsersOrder: async (usersToUpdate: User[]) => {
     if (isSupabaseEnabled) {
-      // Bulk upsert if possible, or loop
-      for (const user of usersToUpdate) {
-        await supabase!.from('users').update({ rank: user.rank }).eq('id', user.id);
+      // Use Promise.all for better performance and error checking
+      const updates = usersToUpdate.map(user => 
+         supabase!.from('users').update({ rank: user.rank }).eq('id', user.id)
+      );
+      
+      const results = await Promise.all(updates);
+      
+      // Check for errors (e.g., missing 'rank' column)
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) {
+          console.error('Failed to save user order. Do you have a "rank" column in your "users" table?', errors[0].error);
+          throw new Error('Database update failed');
       }
     } else {
       // For LocalStorage, we need to update the whole list
-      // We assume usersToUpdate contains the modified users. We need to merge this into the full list.
       const allUsers = await db.getUsers();
       const updatedAllUsers = allUsers.map(u => {
         const update = usersToUpdate.find(up => up.id === u.id);

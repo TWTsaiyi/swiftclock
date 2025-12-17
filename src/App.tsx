@@ -87,8 +87,12 @@ const App: React.FC = () => {
             const uniqueUsers = Array.from(new Map(fetchedUsers.map(u => [u.id, u])).values());
             const uniqueDepts = Array.from(new Set(fetchedDepts));
 
-            // Ensure sorted by rank
-            uniqueUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+            // Ensure sorted by rank then name (Consistent with db.ts)
+            uniqueUsers.sort((a, b) => {
+                const rankDiff = (a.rank || 0) - (b.rank || 0);
+                if (rankDiff !== 0) return rankDiff;
+                return a.name.localeCompare(b.name);
+            });
 
             setUsers(uniqueUsers);
             setDepartments(uniqueDepts);
@@ -290,10 +294,14 @@ const App: React.FC = () => {
   const handleMoveUser = async (user: User, direction: 'prev' | 'next') => {
     // Filter users in same department
     const dept = user.department || 'General';
-    // Get users for this department, sorted by current rank
+    // Get users for this department, sorted by current rank then name
     const deptUsers = users
         .filter(u => (u.department || 'General') === dept)
-        .sort((a, b) => (a.rank || 0) - (b.rank || 0));
+        .sort((a, b) => {
+            const rankDiff = (a.rank || 0) - (b.rank || 0);
+            if (rankDiff !== 0) return rankDiff;
+            return a.name.localeCompare(b.name);
+        });
     
     const currentIndex = deptUsers.findIndex(u => u.id === user.id);
     if (currentIndex === -1) return;
@@ -318,11 +326,22 @@ const App: React.FC = () => {
         return updated ? updated : u;
     });
     
-    // Sort global list
-    updatedAllUsers.sort((a, b) => (a.rank || 0) - (b.rank || 0));
+    // Sort global list consistent with load
+    updatedAllUsers.sort((a, b) => {
+        const rankDiff = (a.rank || 0) - (b.rank || 0);
+        if (rankDiff !== 0) return rankDiff;
+        return a.name.localeCompare(b.name);
+    });
     
     setUsers(updatedAllUsers);
-    await db.saveUsersOrder(usersToUpdate);
+    
+    try {
+        await db.saveUsersOrder(usersToUpdate);
+    } catch (error) {
+        // If save fails, we should technically revert, but for now we just alert
+        console.error("Failed to persist order", error);
+        alert("Failed to save the new order. Please check if your database has a 'rank' column.");
+    }
   };
 
   // --- Time Tracking ---
